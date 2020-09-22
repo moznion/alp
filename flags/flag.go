@@ -10,23 +10,24 @@ import (
 )
 
 type GlobalFlags struct {
-	Config         string
-	File           string
-	Dump           string
-	Load           string
-	Sort           string
-	Reverse        bool
-	QueryString    bool
-	Format         string
-	NoHeaders      bool
-	ShowFooters    bool
-	Limit          int
-	Location       string
-	Output         string
-	MatchingGroups string
-	Filters        string
-	PosFile        string
-	NoSavePos      bool
+	Config            string
+	File              string
+	Dump              string
+	Load              string
+	Sort              string
+	Reverse           bool
+	QueryString       bool
+	Format            string
+	NoHeaders         bool
+	ShowFooters       bool
+	Limit             int
+	Location          string
+	Output            string
+	MatchingGroups    string
+	Filters           string
+	PosFile           string
+	NoSavePos         bool
+	BreakdownStatuses bool
 }
 
 var SortKeys = []string{
@@ -112,4 +113,6 @@ func (f *GlobalFlags) InitGlobalFlags(app *kingpin.Application) {
 		PlaceHolder("POSITION_FILE").StringVar(&f.PosFile)
 	app.Flag("nosave-pos", "Do not save position file").
 		BoolVar(&f.NoSavePos)
+	app.Flag("breakdown-statuses", "Breakdowns the HTTP status-codes in detail").
+		BoolVar(&f.BreakdownStatuses)
 }

@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"regexp"
@@ -59,7 +60,7 @@ func NewHTTPStats(useResTimePercentile, useRequestBodyBytesPercentile, useRespon
 	}
 }
 
-func (hs *HTTPStats) Set(uri, method string, status int, restime, resBodyBytes, reqBodyBytes float64) {
+func (hs *HTTPStats) Set(uri, method string, status int, restime, resBodyBytes, reqBodyBytes float64, breakdownStatuses bool) {
 	if len(hs.uriMatchingGroups) > 0 {
 		for _, re := range hs.uriMatchingGroups {
 			if ok := re.Match([]byte(uri)); ok {
@@ -77,7 +78,7 @@ func (hs *HTTPStats) Set(uri, method string, status int, restime, resBodyBytes, 
 		hs.stats = append(hs.stats, newHTTPStat(uri, method, hs.useResponseTimePercentile, hs.useRequestBodyBytesPercentile, hs.useResponseBodyBytesPercentile))
 	}
 
-	hs.stats[idx].Set(status, restime, resBodyBytes, reqBodyBytes)
+	hs.stats[idx].Set(status, restime, resBodyBytes, reqBodyBytes, breakdownStatuses)
 }
 
 func (hs *HTTPStats) Stats() []*HTTPStat {
@@ -129,6 +130,15 @@ func (hs *HTTPStats) CountAll() map[string]int {
 		counts["3xx"] += s.Status3xx
 		counts["4xx"] += s.Status4xx
 		counts["5xx"] += s.Status5xx
+
+		// TODO:
+		// the bellow code is necessary on footer and header for status-code breakdown.
+		// However, it needs to reimplement the logic of header rendering (especially the order of fields),
+		// so the following code is commented-out.
+		//
+		//for status, cnt := range s.CountsForEachStatus {
+		//	counts[(fmt.Sprintf("%d", status))] += cnt
+		//}
 	}
 
 	return counts
@@ -139,41 +149,43 @@ func (hs *HTTPStats) SortWithOptions() {
 }
 
 type HTTPStat struct {
-	Uri               string        `yaml:"uri"`
-	Cnt               int           `yaml:"count"`
-	Status1xx         int           `yaml:"status1xx"`
-	Status2xx         int           `yaml:"status2xx"`
-	Status3xx         int           `yaml:"status3xx"`
-	Status4xx         int           `yaml:"status4xx"`
-	Status5xx         int           `yaml:"status5xx"`
-	Method            string        `yaml:"method"`
-	ResponseTime      *responseTime `yaml:"response_time"`
-	RequestBodyBytes  *bodyBytes    `yaml:"request_body_bytes"`
-	ResponseBodyBytes *bodyBytes    `yaml:"response_body_bytes"`
-	Time              string
+	Uri                 string        `yaml:"uri"`
+	Cnt                 int           `yaml:"count"`
+	Status1xx           int           `yaml:"status1xx"`
+	Status2xx           int           `yaml:"status2xx"`
+	Status3xx           int           `yaml:"status3xx"`
+	Status4xx           int           `yaml:"status4xx"`
+	Status5xx           int           `yaml:"status5xx"`
+	CountsForEachStatus map[int]int   `yaml:"counts_for_each_status"` // TODO
+	Method              string        `yaml:"method"`
+	ResponseTime        *responseTime `yaml:"response_time"`
+	RequestBodyBytes    *bodyBytes    `yaml:"request_body_bytes"`
+	ResponseBodyBytes   *bodyBytes    `yaml:"response_body_bytes"`
+	Time                string
 }
 
 type httpStats []*HTTPStat
 
 func newHTTPStat(uri, method string, useResTimePercentile, useRequestBodyBytesPercentile, useResponseBodyBytesPercentile bool) *HTTPStat {
 	return &HTTPStat{
-		Uri:               uri,
-		Method:            method,
-		ResponseTime:      newResponseTime(useResTimePercentile),
-		RequestBodyBytes:  newBodyBytes(useRequestBodyBytesPercentile),
-		ResponseBodyBytes: newBodyBytes(useResponseBodyBytesPercentile),
+		Uri:                 uri,
+		Method:              method,
+		ResponseTime:        newResponseTime(useResTimePercentile),
+		RequestBodyBytes:    newBodyBytes(useRequestBodyBytesPercentile),
+		ResponseBodyBytes:   newBodyBytes(useResponseBodyBytesPercentile),
+		CountsForEachStatus: make(map[int]int),
 	}
 }
 
-func (hs *HTTPStat) Set(status int, restime, reqBodyBytes, resBodyBytes float64) {
+func (hs *HTTPStat) Set(status int, restime, reqBodyBytes, resBodyBytes float64, breakdownStatuses bool) {
 	hs.Cnt++
-	hs.setStatus(status)
+	hs.setStatus(status, breakdownStatuses)
 	hs.ResponseTime.Set(restime)
 	hs.RequestBodyBytes.Set(reqBodyBytes)
 	hs.ResponseBodyBytes.Set(resBodyBytes)
 }
 
-func (hs *HTTPStat) setStatus(status int) {
+func (hs *HTTPStat) setStatus(status int, breakdownStatuses bool) {
 	if status >= 100 && status <= 199 {
 		hs.Status1xx++
 	} else if status >= 200 && status <= 299 {
@@ -184,6 +196,10 @@ func (hs *HTTPStat) setStatus(status int) {
 		hs.Status4xx++
 	} else if status >= 500 && status <= 599 {
 		hs.Status5xx++
+	}
+
+	if breakdownStatuses {
+		hs.CountsForEachStatus[status]++
 	}
 }
 
@@ -205,6 +221,11 @@ func (hs *HTTPStat) StrStatus4xx() string {
 
 func (hs *HTTPStat) StrStatus5xx() string {
 	return fmt.Sprint(hs.Status5xx)
+}
+
+func (hs *HTTPStat) StrCountsForEachStatus() string {
+	serializedCounts, _ := json.Marshal(hs.CountsForEachStatus)
+	return string(serializedCounts)
 }
 
 func (hs *HTTPStat) Count() int {

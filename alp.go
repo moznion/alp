@@ -140,6 +140,7 @@ func (p *Profiler) Run(args []string) error {
 		options.Filters(p.globalFlags.Filters),
 		options.PosFile(p.globalFlags.PosFile),
 		options.NoSavePos(p.globalFlags.NoSavePos),
+		options.BreakdownStatuses(p.globalFlags.BreakdownStatuses),
 		// ltsv
 		options.UriLabel(p.ltsvFlags.UriLabel),
 		options.MethodLabel(p.ltsvFlags.MethodLabel),
@@ -176,7 +177,7 @@ func (p *Profiler) Run(args []string) error {
 
 	sts.SetOptions(opts)
 
-	printer := stats.NewPrinter(p.outWriter, opts.Output, opts.Format, opts.NoHeaders, opts.ShowFooters)
+	printer := stats.NewPrinter(p.outWriter, opts.Output, opts.Format, opts.NoHeaders, opts.ShowFooters, opts.BreakdownStatuses)
 	if err = printer.Validate(); err != nil {
 		return err
 	}
@@ -275,7 +276,7 @@ Loop:
 			continue Loop
 		}
 
-		sts.Set(s.Uri, s.Method, s.Status, s.ResponseTime, s.BodyBytes, 0)
+		sts.Set(s.Uri, s.Method, s.Status, s.ResponseTime, s.BodyBytes, 0, opts.BreakdownStatuses)
 
 		if sts.CountUris() > opts.Limit {
 			return fmt.Errorf("Too many URI's (%d or less)", opts.Limit)

@@ -11,26 +11,27 @@ import (
 )
 
 var headers = map[string]string{
-	"count":    "Count",
-	"1xx":      "1xx",
-	"2xx":      "2xx",
-	"3xx":      "3xx",
-	"4xx":      "4xx",
-	"5xx":      "5xx",
-	"method":   "Method",
-	"uri":      "Uri",
-	"min":      "Min",
-	"max":      "Max",
-	"sum":      "Sum",
-	"avg":      "Avg",
-	"p1":       "P1",
-	"p50":      "P50",
-	"p99":      "P99",
-	"stddev":   "Stddev",
-	"min_body": "Min(Body)",
-	"max_body": "Max(Body)",
-	"sum_body": "Sum(Body)",
-	"avg_body": "Avg(Body)",
+	"count":              "Count",
+	"1xx":                "1xx",
+	"2xx":                "2xx",
+	"3xx":                "3xx",
+	"4xx":                "4xx",
+	"5xx":                "5xx",
+	"method":             "Method",
+	"uri":                "Uri",
+	"min":                "Min",
+	"max":                "Max",
+	"sum":                "Sum",
+	"avg":                "Avg",
+	"p1":                 "P1",
+	"p50":                "P50",
+	"p99":                "P99",
+	"stddev":             "Stddev",
+	"min_body":           "Min(Body)",
+	"max_body":           "Max(Body)",
+	"sum_body":           "Sum(Body)",
+	"avg_body":           "Avg(Body)",
+	"breakdown_statuses": "Statuses Breakdown",
 }
 
 var keywords = []string{
@@ -54,6 +55,7 @@ var keywords = []string{
 	"max_body",
 	"sum_body",
 	"avg_body",
+	"breakdown_statuses",
 }
 
 var defaultHeaders = []string{
@@ -64,21 +66,23 @@ var defaultHeaders = []string{
 }
 
 type Printer struct {
-	keywords    []string
-	format      string
-	noHeaders   bool
-	showFooters bool
-	headers     []string
-	writer      io.Writer
-	all         bool
+	keywords          []string
+	format            string
+	noHeaders         bool
+	showFooters       bool
+	breakdownStatuses bool
+	headers           []string
+	writer            io.Writer
+	all               bool
 }
 
-func NewPrinter(w io.Writer, val, format string, noHeaders, showFooters bool) *Printer {
+func NewPrinter(w io.Writer, val, format string, noHeaders, showFooters, breakdownStatuses bool) *Printer {
 	p := &Printer{
-		format:      format,
-		writer:      w,
-		showFooters: showFooters,
-		noHeaders:   noHeaders,
+		format:            format,
+		writer:            w,
+		showFooters:       showFooters,
+		noHeaders:         noHeaders,
+		breakdownStatuses: breakdownStatuses,
 	}
 
 	if val == "all" {
@@ -96,6 +100,10 @@ func NewPrinter(w io.Writer, val, format string, noHeaders, showFooters bool) *P
 				break
 			}
 		}
+	}
+
+	if p.breakdownStatuses {
+		p.headers = append(p.headers, headers["breakdown_statuses"])
 	}
 
 	return p
@@ -120,13 +128,13 @@ func (p *Printer) Validate() error {
 	return nil
 }
 
-func generateAllLine(s *HTTPStat, quoteUri bool) []string {
+func (p *Printer) generateAllLine(s *HTTPStat, quoteUri bool) []string {
 	uri := s.Uri
 	if quoteUri && strings.Contains(s.Uri, ",") {
 		uri = fmt.Sprintf(`"%s"`, s.Uri)
 	}
 
-	return []string{
+	cols := []string{
 		s.StrCount(),
 		s.StrStatus1xx(),
 		s.StrStatus2xx(),
@@ -148,11 +156,17 @@ func generateAllLine(s *HTTPStat, quoteUri bool) []string {
 		round(s.SumResponseBodyBytes()),
 		round(s.AvgResponseBodyBytes()),
 	}
+
+	if p.breakdownStatuses {
+		cols = append(cols, s.StrCountsForEachStatus())
+	}
+
+	return cols
 }
 
 func (p *Printer) GenerateLine(s *HTTPStat, quoteUri bool) []string {
 	if p.all {
-		return generateAllLine(s, quoteUri)
+		return p.generateAllLine(s, quoteUri)
 	}
 
 	keyLen := len(p.keywords)
@@ -205,6 +219,8 @@ func (p *Printer) GenerateLine(s *HTTPStat, quoteUri bool) []string {
 			line = append(line, round(s.SumResponseBodyBytes()))
 		case "avg_body":
 			line = append(line, round(s.AvgResponseBodyBytes()))
+		case "breakdown_statuses":
+			line = append(line, s.StrCountsForEachStatus())
 		}
 	}
 

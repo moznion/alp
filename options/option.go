@@ -54,23 +54,24 @@ const (
 )
 
 type Options struct {
-	File           string         `yaml:"file"`
-	Sort           string         `yaml:"sort"`
-	Reverse        bool           `yaml:"reverse"`
-	QueryString    bool           `yaml:"query_string"`
-	Format         string         `yaml:"format"`
-	NoHeaders      bool           `yaml:"noheaders"`
-	ShowFooters    bool           `yaml:"show_footers"`
-	Limit          int            `yaml:"limit"`
-	MatchingGroups []string       `yaml:"matching_groups"`
-	Filters        string         `yaml:"filters"`
-	PosFile        string         `yaml:"pos_file"`
-	NoSavePos      bool           `yaml:"nosave_pos"`
-	Location       string         `yaml:"location"`
-	Output         string         `yaml:"output"`
-	LTSV           *LTSVOptions   `yaml:"ltsv"`
-	Regexp         *RegexpOptions `yaml:"regexp"`
-	JSON           *JSONOptions   `yaml:"json"`
+	File              string         `yaml:"file"`
+	Sort              string         `yaml:"sort"`
+	Reverse           bool           `yaml:"reverse"`
+	QueryString       bool           `yaml:"query_string"`
+	Format            string         `yaml:"format"`
+	NoHeaders         bool           `yaml:"noheaders"`
+	ShowFooters       bool           `yaml:"show_footers"`
+	Limit             int            `yaml:"limit"`
+	MatchingGroups    []string       `yaml:"matching_groups"`
+	Filters           string         `yaml:"filters"`
+	PosFile           string         `yaml:"pos_file"`
+	NoSavePos         bool           `yaml:"nosave_pos"`
+	BreakdownStatuses bool           `yaml:"breakdown_statuses"`
+	Location          string         `yaml:"location"`
+	Output            string         `yaml:"output"`
+	LTSV              *LTSVOptions   `yaml:"ltsv"`
+	Regexp            *RegexpOptions `yaml:"regexp"`
+	JSON              *JSONOptions   `yaml:"json"`
 }
 
 type LTSVOptions struct {
@@ -224,6 +225,12 @@ func NoSavePos(b bool) Option {
 		if b {
 			opts.NoSavePos = b
 		}
+	}
+}
+
+func BreakdownStatuses(b bool) Option {
+	return func(opts *Options) {
+		opts.BreakdownStatuses = b
 	}
 }
 
@@ -487,6 +494,7 @@ func LoadOptionsFromReader(r io.Reader) (*Options, error) {
 		ShowFooters(configs.ShowFooters),
 		PosFile(configs.PosFile),
 		NoSavePos(configs.NoSavePos),
+		BreakdownStatuses(configs.BreakdownStatuses),
 		MatchingGroups(configs.MatchingGroups),
 		Filters(configs.Filters),
 		// ltsv
